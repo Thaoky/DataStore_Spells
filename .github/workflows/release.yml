@@ -16,7 +16,7 @@ jobs:
 
     # specify the environment variables used by the packager, matching the secrets from the project on GitHub
     env:
-      PROJECT_NAME: "DataStore Talents"
+      PROJECT_NAME: "DataStore Spells"
       CURSEFORGE_API_TOKEN: ${{ secrets.CURSEFORGE_API_TOKEN }}
       DISPLAY_NAME: ""
       ZIP_FILE_NAME: ""
