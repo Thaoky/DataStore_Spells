@@ -4,47 +4,32 @@ July 6th, 2009
 --]]
 if not DataStore then return end
 
-local addonName = "DataStore_Spells"
+local addonName, addon = ...
+local thisCharacter
+local spellTabs
 
-_G[addonName] = LibStub("AceAddon-3.0"):NewAddon(addonName, "AceConsole-3.0", "AceEvent-3.0")
-
-local addon = _G[addonName]
+local TableInsert = table.insert
+local GetSpellTabInfo, GetSpellBookItemInfo, GetSpellAvailableLevel, GetSpellBookItemName = GetSpellTabInfo, GetSpellBookItemInfo, GetSpellAvailableLevel, GetSpellBookItemName
+local GetNumSpellTabs, GetFlyoutInfo, GetFlyoutSlotInfo, C_MountJournal = GetNumSpellTabs, GetFlyoutInfo, GetFlyoutSlotInfo, C_MountJournal
+local isRetail = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 
 local enum = DataStore.Enum
 
-local AddonDB_Defaults = {
-	global = {
-		Characters = {
-			['*'] = {				-- ["Account.Realm.Name"] 
-				lastUpdate = nil,
-				SpellTabs = {},
-				Spells = {
-					['*'] = {		-- "General", "Arcane", "Fire", etc...
-						['*'] = nil
-					}
-				},
-				ridingSkill = 0,
-				ridingEquipment = nil,
-			}
-		}
-	}
-}
-
 -- *** Utility functions ***
 local bAnd = bit.band
-local LeftShift = DataStore.LeftShift
-local RightShift = DataStore.RightShift
+local bit64 = DataStore.Bit64
 
 -- *** Scanning functions ***
 local function ScanSpellTab_Retail(tabID)
-	local tabName, _, offset, numSpells = GetSpellTabInfo(tabID);
+	local tabName, _, offset, numSpells = GetSpellTabInfo(tabID)
 	if not tabName then return end
 	
-	local char = addon.ThisCharacter
+	spellTabs[tabID] = tabName
 	
-	char.SpellTabs[tabID] = tabName
-	
+	local char = thisCharacter
+	char.Spells = char.Spells or {}
 	local spells = char.Spells
+	spells[tabName] = spells[tabName] or {}
 	wipe(spells[tabName])
 	
 	local attrib
@@ -74,7 +59,7 @@ local function ScanSpellTab_Retail(tabID)
 						local flyoutSpellID, _, isFlyoutSpellKnown = GetFlyoutSlotInfo(flyoutID, i)
 						if isFlyoutSpellKnown then
 							-- all info on this spell can be retrieved with GetSpellInfo()
-							table.insert(spells[tabName], LeftShift(flyoutSpellID, 8))
+							TableInsert(spells[tabName], bit64:LeftShift(flyoutSpellID, 8))
 						end
 					end
 				end
@@ -82,22 +67,22 @@ local function ScanSpellTab_Retail(tabID)
 				-- bits 0-7 : level (0 if known spell)
 				-- bits 8- : spellID
 				
-				attrib = attrib + LeftShift(spellID, 8)
+				attrib = attrib + bit64:LeftShift(spellID, 8)
 				-- all info on this spell can be retrieved with GetSpellInfo()
-				table.insert(spells[tabName], attrib)
+				TableInsert(spells[tabName], attrib)
 			end
 		end
 	end
 end
 
 local function ScanSpellTab_Classic(tabID)
-	local tabName, _, offset, numSpells = GetSpellTabInfo(tabID);
+	local tabName, _, offset, numSpells = GetSpellTabInfo(tabID)
 	if not tabName then return end
 	
-	local char = addon.ThisCharacter
+	spellTabs[tabID] = tabName
 	
-	char.SpellTabs[tabID] = tabName
-	
+	local char = thisCharacter
+	char.Spells = char.Spells or {}
 	local spells = char.Spells
 	local newSpells = {}
 	-- wipe(spells[tabName])
@@ -110,7 +95,7 @@ local function ScanSpellTab_Classic(tabID)
 			local _, rank = GetSpellBookItemName(index, BOOKTYPE_SPELL)
 			-- all info on this spell can be retrieved with GetSpellInfo()
 			if rank then
-				table.insert(newSpells, format("%s|%s", spellID, rank))		-- ex: "43017|Rank 1",
+				TableInsert(newSpells, format("%s|%s", spellID, rank))		-- ex: "43017|Rank 1",
 			end
 		end
 	end
@@ -122,141 +107,110 @@ local function ScanSpellTab_Classic(tabID)
 	end
 end
 
-local ScanSpellTab = ScanSpellTab_Classic
+local ScanSpellTab = isRetail and ScanSpellTab_Retail or ScanSpellTab_Classic
 
 local function ScanSpells()
-	local char = addon.ThisCharacter
-
-	wipe(char.SpellTabs)
 	for tabID = 1, GetNumSpellTabs() do
 		ScanSpellTab(tabID)
 	end
 
-	char.lastUpdate = time()
-end
-
--- *** Event Handlers ***
-local function OnPlayerAlive()
-	ScanSpells()
-end
-
-local function OnLearnedSpellInTab()
-	ScanSpells()
-end
-
-local function OnMountJournalUsabilityChanged()
-	addon.ThisCharacter.ridingEquipment = C_MountJournal.GetAppliedMountEquipmentID()
+	thisCharacter.lastUpdate = time()
 end
 
 -- ** Mixins **
+local function _GetSpellInfo_Retail(character, school, index)
+	-- bits 0-7 : level (0 if known spell)
+	-- bits 8- : spellID
+
+	local spellID, availableAt
 	
-local _GetSpellInfo
-
-if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE then
-	-- Retail version
-	_GetSpellInfo = function(character, school, index)
-		-- bits 0-7 : level (0 if known spell)
-		-- bits 8- : spellID
-
-		local spellID, availableAt
-		
-		local spell = character.Spells[school][index]
-		if spell then
-			availableAt = bAnd(spell, 255)
-			spellID = RightShift(spell, 8)
-		end
-		
-		return spellID, availableAt
+	local spell = character.Spells[school][index]
+	if spell then
+		availableAt = bAnd(spell, 255)
+		spellID = bit64:RightShift(spell, 8)
 	end
-
-else
-	-- Vanilla & BC version
-	_GetSpellInfo = function(character, school, index)
-		if not character.Spells[school] or not character.Spells[school][index] then return end
-
-		local spellID, rank = strsplit("|", character.Spells[school][index])
-		
-		return tonumber(spellID), rank
-	end
+	
+	return spellID, availableAt
 end
 
-local mixins = {
-	GetNumSpells = function(character, school)
-		return #character.Spells[school]
-	end,
+local function _GetSpellInfo_Classic(character, school, index)
+	if not character.Spells[school] or not character.Spells[school][index] then return end
+
+	local spellID, rank = strsplit("|", character.Spells[school][index])
 	
-	GetSpellInfo = _GetSpellInfo,
-	
-	IsSpellKnown = function(character, spellID)
-		-- Parse all magic schools
-		for schoolName, _ in pairs(character.Spells) do
-		
-			-- Parse all spells
-			for i = 1, #character.Spells[schoolName] do
-				local id = _GetSpellInfo(character, schoolName, i)
-				if id == spellID then
-					return true
-				end
+	return tonumber(spellID), rank
+end
+
+DataStore:OnAddonLoaded(addonName, function()
+	DataStore:RegisterNewModule({
+		addon = addon,
+		addonName = addonName,
+		rawTables = {
+			"DataStore_Spells_Tabs"
+		},
+		characterTables = {
+			["DataStore_Spells_Characters"] = {
+				GetNumSpells = function(character, school)
+					return #character.Spells[school]
+				end,
+				GetSpellTabs = function(character)
+					return DataStore_Spells_Tabs[character.englishClass]
+				end,
+				IsSpellKnown = function(character, spellID)
+					-- Parse all magic schools
+					for schoolName, _ in pairs(character.Spells) do
+					
+						-- Parse all spells
+						for i = 1, #character.Spells[schoolName] do
+							local id = _GetSpellInfo(character, schoolName, i)
+							if id == spellID then
+								return true
+							end
+						end
+					end
+				end,
+				GetRidingSkill = isRetail and function(character)
+					local spellID = character.ridingSkill
+					
+					if enum.RidingSkills[spellID] then
+						local spellName = GetSpellInfo(spellID)
+						
+						-- return the mount speed, the spell name, and the spell id in case the caller wants more info
+						return enum.RidingSkills[spellID].speed, spellName, spellID, character.ridingEquipment
+					end
+					
+					return 0, ""
+				end,
+				
+				GetSpellInfo = isRetail and _GetSpellInfo_Retail or _GetSpellInfo_Classic
+			},
+		}
+	})
+
+	if isRetail then
+		DataStore:RegisterMethod(addon, "IterateRidingSkills", function(callback)
+			for _, spellID in ipairs(enum.RidingSkillsSorted) do
+				callback(enum.RidingSkills[spellID])
 			end
-		end
-	end,
-	
-	GetSpellTabs = function(character)
-		return character.SpellTabs
-	end,
-}
-
-if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE then
-
-	mixins["GetRidingSkill"] = function(character)
-		local spellID = character.ridingSkill
-		
-		if enum.RidingSkills[spellID] then
-			local spellName = GetSpellInfo(spellID)
-			
-			-- return the mount speed, the spell name, and the spell id in case the caller wants more info
-			return enum.RidingSkills[spellID].speed, spellName, spellID, character.ridingEquipment
-		end
-		
-		return 0, ""
+		end)
 	end
-	
-	mixins["IterateRidingSkills"] = function(callback)
-		for _, spellID in ipairs(enum.RidingSkillsSorted) do
-			callback(enum.RidingSkills[spellID])
-		end
-	end
-end
 
-function addon:OnInitialize()
-	addon.db = LibStub("AceDB-3.0"):New(format("%sDB", addonName), AddonDB_Defaults)
-
-	DataStore:RegisterModule(addonName, addon, mixins)
-	DataStore:SetCharacterBasedMethod("GetNumSpells")
-	DataStore:SetCharacterBasedMethod("GetSpellInfo")
-	DataStore:SetCharacterBasedMethod("IsSpellKnown")
-	DataStore:SetCharacterBasedMethod("GetSpellTabs")
+	thisCharacter = DataStore:GetCharacterDB("DataStore_Spells_Characters", true)
 	
-	if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE then
-		DataStore:SetCharacterBasedMethod("GetRidingSkill")
-		ScanSpellTab = ScanSpellTab_Retail
-	end
-end
-
-function addon:OnEnable()
-	addon:RegisterEvent("PLAYER_ALIVE", OnPlayerAlive)
-	addon:RegisterEvent("LEARNED_SPELL_IN_TAB", OnLearnedSpellInTab)
+	local _, englishClass = UnitClass("player")
+	thisCharacter.englishClass = englishClass
 	
-	if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE then
-		addon:RegisterEvent("MOUNT_JOURNAL_USABILITY_CHANGED", OnMountJournalUsabilityChanged)
-	end
-end
+	DataStore_Spells_Tabs[englishClass] = DataStore_Spells_Tabs[englishClass] or {}
+	spellTabs = DataStore_Spells_Tabs[englishClass]		-- directly point to the proper table for this alt.
+end)
 
-function addon:OnDisable()
-	addon:UnregisterEvent("PLAYER_ALIVE")
-	addon:UnregisterEvent("LEARNED_SPELL_IN_TAB")
+DataStore:OnPlayerLogin(function() 
+	addon:ListenTo("PLAYER_ALIVE", ScanSpells)
+	addon:ListenTo("LEARNED_SPELL_IN_TAB", ScanSpells)
 	
-	if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE then
-		addon:UnregisterEvent("MOUNT_JOURNAL_USABILITY_CHANGED")
+	if isRetail then
+		addon:ListenTo("MOUNT_JOURNAL_USABILITY_CHANGED", function()
+			thisCharacter.ridingEquipment = C_MountJournal.GetAppliedMountEquipmentID()
+		end)
 	end
-end
+end)
