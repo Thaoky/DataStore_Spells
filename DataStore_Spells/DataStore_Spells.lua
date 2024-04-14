@@ -14,10 +14,7 @@ local GetNumSpellTabs, GetFlyoutInfo, GetFlyoutSlotInfo, C_MountJournal = GetNum
 local isRetail = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 
 local enum = DataStore.Enum
-
--- *** Utility functions ***
-local bAnd = bit.band
-local bit64 = DataStore.Bit64
+local bit64 = LibStub("LibBit64")
 
 -- *** Scanning functions ***
 local function ScanSpellTab_Retail(tabID)
@@ -126,7 +123,7 @@ local function _GetSpellInfo_Retail(character, school, index)
 	
 	local spell = character.Spells[school][index]
 	if spell then
-		availableAt = bAnd(spell, 255)
+		availableAt = bit64:GetBits(spell, 0, 8)
 		spellID = bit64:RightShift(spell, 8)
 	end
 	
@@ -142,7 +139,7 @@ local function _GetSpellInfo_Classic(character, school, index)
 end
 
 DataStore:OnAddonLoaded(addonName, function()
-	DataStore:RegisterNewModule({
+	DataStore:RegisterModule({
 		addon = addon,
 		addonName = addonName,
 		rawTables = {
