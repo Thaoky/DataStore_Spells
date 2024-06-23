@@ -81,8 +81,9 @@ local function ScanSpellTab_Classic(tabID)
 	local char = thisCharacter
 	char.Spells = char.Spells or {}
 	local spells = char.Spells
-	local newSpells = {}
-	-- wipe(spells[tabName])
+	
+	spells[tabName] = spells[tabName] or {}
+	wipe(spells[tabName])
 	
 	local spellType, spellID
 	for index = offset + 1, offset + numSpells do
@@ -92,15 +93,9 @@ local function ScanSpellTab_Classic(tabID)
 			local _, rank = GetSpellBookItemName(index, BOOKTYPE_SPELL)
 			-- all info on this spell can be retrieved with GetSpellInfo()
 			if rank then
-				TableInsert(newSpells, format("%s|%s", spellID, rank))		-- ex: "43017|Rank 1",
+				TableInsert(spells[tabName], format("%s|%s", spellID, rank))		-- ex: "43017|Rank 1",
 			end
 		end
-	end
-	
-	-- if the spells were not properly loaded after logon, there is a risk that ranks will not properly be read
-	-- thus newspells will contain nothing .. so update only if we could read something
-	if #newSpells > 0 then
-		spells[tabName] = newSpells
 	end
 end
 
