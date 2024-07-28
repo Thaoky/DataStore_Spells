@@ -18,9 +18,10 @@ local bit64 = LibStub("LibBit64")
 
 -- *** Scanning functions ***
 local function ScanSpellTab_Retail(tabID)
-	local tabName, _, offset, numSpells = C_SpellBook.GetSpellBookSkillLineInfo(tabID)
-	if not tabName then return end
+	local info = C_SpellBook.GetSpellBookSkillLineInfo(tabID)
+	if not info then return end
 	
+	local tabName = info.name
 	spellTabs[tabID] = tabName
 	
 	local char = thisCharacter
@@ -30,52 +31,52 @@ local function ScanSpellTab_Retail(tabID)
 	wipe(spells[tabName])
 	
 	local attrib
+	local offset = info.itemIndexOffset
+	local numSpells = info.numSpellBookItems
 	
-	for i = 1, C_SpellBook.GetNumSpellBookSkillLines() do
-		local info = C_SpellBook.GetSpellBookSkillLineInfo(i)
-		local offset, numSlots = info.itemIndexOffset, info.numSpellBookItems
-	
-		for index = offset + 1, offset + numSlots do
-			local spellType, spellID = C_SpellBook.GetSpellBookItemInfo(index, Enum.SpellBookSpellBank.Player)
-			
-			if spellID then
-				-- spellLevel = 0 if the spell is known, or the actual future level if it is not known
-				local spellLevel = C_SpellBook.GetSpellBookItemLevelLearned(index, Enum.SpellBookSpellBank.Player)
-			
-				-- special treatment for the riding skill
-				if enum.RidingSkills[spellID] and spellLevel == 0 then
-					char.ridingSkill = spellID
-				end
-			
-				attrib = 0
-				if spellType == Enum.SpellBookItemType.FutureSpell then
-					attrib = spellLevel	-- 8 bits for the level
-				end
+	for index = offset + 1, offset + numSpells do
+		local info = C_SpellBook.GetSpellBookItemInfo(index, Enum.SpellBookSpellBank.Player)
+		local spellID = info.spellID
+		local spellType = info.itemType
+		
+		if spellID then
+			-- spellLevel = 0 if the spell is known, or the actual future level if it is not known
+			local spellLevel = C_SpellBook.GetSpellBookItemLevelLearned(index, Enum.SpellBookSpellBank.Player)
+		
+			-- special treatment for the riding skill
+			if enum.RidingSkills[spellID] and spellLevel == 0 then
+				char.ridingSkill = spellID
+			end
+		
+			attrib = 0
+			if spellType == Enum.SpellBookItemType.FutureSpell then
+				attrib = spellLevel	-- 8 bits for the level
+			end
 
-				if spellType == Enum.SpellBookItemType.Flyout then	-- flyout spells, like list of mage portals
-					local flyoutID = spellID
-					local _, _, numSlots, isKnown = GetFlyoutInfo(flyoutID)
-					
-					if isKnown then
-						for i = 1, numSlots do
-							local flyoutSpellID, _, isFlyoutSpellKnown = GetFlyoutSlotInfo(flyoutID, i)
-							if isFlyoutSpellKnown then
-								-- all info on this spell can be retrieved with GetSpellInfo()
-								TableInsert(spells[tabName], bit64:LeftShift(flyoutSpellID, 8))
-							end
+			if spellType == Enum.SpellBookItemType.Flyout then	-- flyout spells, like list of mage portals
+				local flyoutID = spellID
+				local _, _, numSlots, isKnown = GetFlyoutInfo(flyoutID)
+				
+				if isKnown then
+					for i = 1, numSlots do
+						local flyoutSpellID, _, isFlyoutSpellKnown = GetFlyoutSlotInfo(flyoutID, i)
+						if isFlyoutSpellKnown then
+							-- all info on this spell can be retrieved with GetSpellInfo()
+							TableInsert(spells[tabName], bit64:LeftShift(flyoutSpellID, 8))
 						end
 					end
-				else
-					-- bits 0-7 : level (0 if known spell)
-					-- bits 8- : spellID
-					
-					attrib = attrib + bit64:LeftShift(spellID, 8)
-					-- all info on this spell can be retrieved with GetSpellInfo()
-					TableInsert(spells[tabName], attrib)
 				end
+			else
+				-- bits 0-7 : level (0 if known spell)
+				-- bits 8- : spellID
+				
+				attrib = attrib + bit64:LeftShift(spellID, 8)
+				-- all info on this spell can be retrieved with GetSpellInfo()
+				TableInsert(spells[tabName], attrib)
 			end
 		end
 	end
+
 end
 
 local function ScanSpellTab_Classic(tabID)
