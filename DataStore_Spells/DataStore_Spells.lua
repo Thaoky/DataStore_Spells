@@ -172,7 +172,7 @@ DataStore:OnAddonLoaded(addonName, function()
 					local spellID = character.ridingSkill
 					
 					if enum.RidingSkills[spellID] then
-						local spellName = GetSpellInfo(spellID)
+						local spellName = C_Spell.GetSpellName(spellID)
 						
 						-- return the mount speed, the spell name, and the spell id in case the caller wants more info
 						return enum.RidingSkills[spellID].speed, spellName, spellID, character.ridingEquipment
