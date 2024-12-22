@@ -1,11 +1,11 @@
-## Interface: 110005, 40400, 11502
+## Interface: 110007, 40400, 11502
 ## Title: DataStore_Spells
 ## IconTexture: Interface\Icons\garrison_building_storehouse
 
 ## Notes: Stores information about character spells
 ## Author: Thaoky (EU-Marécages de Zangar)
-## Version: 2024.11.11
-## Dependencies: DataStore
+## Version: 2024.12.22
+## Dependencies: AddonFactory, DataStore
 ## SavedVariables: DataStore_Spells_Characters, DataStore_Spells_Tabs
 ## X-Category: Interface Enhancements
 

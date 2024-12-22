@@ -140,7 +140,7 @@ local function _GetSpellInfo_Classic(character, school, index)
 	return tonumber(spellID), rank
 end
 
-DataStore:OnAddonLoaded(addonName, function()
+AddonFactory:OnAddonLoaded(addonName, function()
 	DataStore:RegisterModule({
 		addon = addon,
 		addonName = addonName,
@@ -203,7 +203,7 @@ DataStore:OnAddonLoaded(addonName, function()
 	spellTabs = DataStore_Spells_Tabs[englishClass]		-- directly point to the proper table for this alt.
 end)
 
-DataStore:OnPlayerLogin(function() 
+AddonFactory:OnPlayerLogin(function() 
 	addon:ListenTo("PLAYER_ALIVE", ScanSpells)
 	addon:ListenTo("LEARNED_SPELL_IN_TAB", ScanSpells)
 	
