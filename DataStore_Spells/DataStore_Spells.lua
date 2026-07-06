@@ -80,7 +80,7 @@ local function ScanSpellTab_Retail(tabID)
 end
 
 local function ScanSpellTab_Classic(tabID)
-	local tabName, _, offset, numSpells = GetSpellTabInfo(tabID)
+	local tabName, _, offset, numSpells, _, offspecID = GetSpellTabInfo(tabID)
 	if not tabName then return end
 	
 	spellTabs[tabID] = tabName
@@ -96,10 +96,10 @@ local function ScanSpellTab_Classic(tabID)
 		local spellType, spellID = GetSpellBookItemInfo(index, BOOKTYPE_SPELL)
 		
 		if spellID then
-			local _, rank = GetSpellBookItemName(index, BOOKTYPE_SPELL)
-			-- all info on this spell can be retrieved with GetSpellInfo()
-			if rank then
-				TableInsert(spells[tabName], format("%s|%s", spellID, rank))		-- ex: "43017|Rank 1",
+			local name, subName = GetSpellBookItemName(index, BOOKTYPE_SPELL)
+			subName = subName or ""
+			if name then
+				TableInsert(spells[tabName], format("%s|%s|%s|%s", spellID, subName, spellType, offspecID))		-- ex: "43017|Rank 1",
 			end
 		end
 	end
@@ -109,6 +109,7 @@ local ScanSpellTab = isRetail and ScanSpellTab_Retail or ScanSpellTab_Classic
 local GetNumSpellTabs = isRetail and C_SpellBook.GetNumSpellBookSkillLines or GetNumSpellTabs
 
 local function ScanSpells()
+	wipe(spellTabs) -- Force a rebuild
 	for tabID = 1, GetNumSpellTabs() do
 		ScanSpellTab(tabID)
 	end
@@ -135,9 +136,9 @@ end
 local function _GetSpellInfo_Classic(character, school, index)
 	if not character.Spells[school] or not character.Spells[school][index] then return end
 
-	local spellID, rank = strsplit("|", character.Spells[school][index])
+	local spellID, rank, spellType, offspecID = strsplit("|", character.Spells[school][index])
 	
-	return tonumber(spellID), rank
+	return tonumber(spellID), rank, spellType, tonumber(offspecID)
 end
 
 AddonFactory:OnAddonLoaded(addonName, function()
@@ -205,6 +206,7 @@ end)
 
 AddonFactory:OnPlayerLogin(function() 
 	addon:ListenTo("PLAYER_ALIVE", ScanSpells)
+	addon:ListenTo("PLAYER_ENTERING_WORLD", ScanSpells)
 	addon:ListenTo("LEARNED_SPELL_IN_TAB", ScanSpells)
 	
 	if isRetail then
