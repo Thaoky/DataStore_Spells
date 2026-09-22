@@ -18,7 +18,7 @@ local bit64 = LibStub("LibBit64")
 
 -- *** Scanning functions ***
 local function ScanSpellTab_Retail(tabID)
-	local info = C_SpellBook.GetSpellBookSkillLineInfo(tabID)
+	local info = nil; if C_SpellBook and C_SpellBook.GetSpellBookSkillLineInfo then local ok, i = pcall(C_SpellBook.GetSpellBookSkillLineInfo, tabID); if ok then info = i end end
 	if not info then return end
 	
 	local tabName = info.name
