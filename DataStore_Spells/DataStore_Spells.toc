@@ -4,7 +4,7 @@
 
 ## Notes: Stores information about character spells
 ## Author: Thaoky (EU-Marécages de Zangar)
-## Version: 2026.09.30
+## Version: 2026.10.02
 ## Dependencies: AddonFactory, DataStore
 ## SavedVariables: DataStore_Spells_Characters, DataStore_Spells_Tabs
 ## X-Category: Interface Enhancements
