@@ -11,7 +11,9 @@ local spellTabs
 local TableInsert = table.insert
 local GetSpellTabInfo, GetSpellBookItemName = GetSpellTabInfo, GetSpellBookItemName
 local GetFlyoutInfo, GetFlyoutSlotInfo, C_MountJournal = GetFlyoutInfo, GetFlyoutSlotInfo, C_MountJournal
-local isRetail = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
+local isRetail = AddonFactory.isRetail
+local isForever = AddonFactory.isForever
+local isMainline = isRetail or isForever
 
 local enum = DataStore.Enum
 local bit64 = LibStub("LibBit64")
@@ -105,8 +107,8 @@ local function ScanSpellTab_Classic(tabID)
 	end
 end
 
-local ScanSpellTab = isRetail and ScanSpellTab_Retail or ScanSpellTab_Classic
-local GetNumSpellTabs = isRetail and C_SpellBook.GetNumSpellBookSkillLines or GetNumSpellTabs
+local ScanSpellTab = isMainline and ScanSpellTab_Retail or ScanSpellTab_Classic
+local GetNumSpellTabs = isMainline and C_SpellBook.GetNumSpellBookSkillLines or GetNumSpellTabs
 
 local function ScanSpells()
 	wipe(spellTabs) -- Force a rebuild
@@ -182,7 +184,7 @@ AddonFactory:OnAddonLoaded(addonName, function()
 					return 0, ""
 				end,
 				
-				GetSpellInfo = isRetail and _GetSpellInfo_Retail or _GetSpellInfo_Classic
+				GetSpellInfo = isMainline and _GetSpellInfo_Retail or _GetSpellInfo_Classic
 			},
 		}
 	})
